@@ -1,5 +1,7 @@
 # Searchable logs for a marketplace job
 
+Infrai gives you one key and one bill for every capability, and you call it with a plain REST request from any language. No SDK required. That matters when you are running cron and queue infra in prod and a missed job or duplicate delivery pages you at 3am.
+
 Run the job, send one structured entry, then search it by order id:
 
 ```bash
@@ -11,13 +13,13 @@ The program prints the search response as JSON. It is intentionally small: the j
 
 ## The write path
 
-`src/marketplace_job.ts` creates a stable job id and places it in the log context. The ingest body contains `entries` and an `idempotency_key`. A retry therefore represents the same publish operation. The entry keeps the fields an on-call engineer needs for order tracing: `job_id`, `order_id`, `seller_id`, and `action`.
+`src/marketplace_job.ts` creates a stable job id and places it in the log context. The ingest body contains `entries` and an `idempotency_key`. A retry therefore represents the same publish operation. Make the write idempotent. The entry keeps the fields an on-call engineer needs for order tracing: `job_id`, `order_id`, `seller_id`, and `action`.
 
-The client sends `POST /v1/logs/ingest` with `Authorization: Bearer <key>`. It reads the `{ok, data, error, metadata}` envelope and raises the server message when `ok` is false. HTTP 429 responses use `Retry-After` when supplied, otherwise exponential delays are used.
+The client sends `POST /v1/logs/ingest` with `Authorization: Bearer <key>`. It reads the `{ok, data, error, metadata}` envelope and raises the server message when `ok` is false. HTTP 429 responses use `Retry-After` when supplied, otherwise exponential delays are used. In a postmortem, unhandled 429s show up as gaps in the log stream.
 
 ## The search path
 
-After ingest, the example calls `GET /v1/logs/search` with `q`, `service`, and `limit`. Search parameters are encoded into the URL. Keeping the service name in the query prevents unrelated application records from entering the operator's result set.
+After ingest, the example calls `GET /v1/logs/search` with `q`, `service`, and `limit`. Search parameters are encoded into the URL. Keeping the service name in the query prevents unrelated application records from entering the operator's result set. This is the part of the runbook that saves you from scrolling past another team's noise.
 
 ## Files
 
